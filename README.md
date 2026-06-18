@@ -14,7 +14,7 @@ ollama pull llama3.2        # or any open model you like
 pip install -e .
 ```
 
-That's it — no API key. arDive talks to the local Ollama server. Pick a
+That's it. arDive talks to the local Ollama server. Pick a
 different model with `ARDIVE_MODEL` (e.g. `export ARDIVE_MODEL=qwen2.5`), or
 point at a remote Ollama with `OLLAMA_HOST`.
 
