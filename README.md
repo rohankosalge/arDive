@@ -10,12 +10,20 @@ summarize, explain, compare, and digest them. Anyone can easily install and use 
 ollama pull llama3.2        # or any open model you like
 
 # 2. Install arDive
-pip install -e .
+pip install ardive
 ```
 
 That's it. arDive talks to the local Ollama server. Pick a
 different model with `ARDIVE_MODEL` (e.g. `export ARDIVE_MODEL=qwen2.5`), or
 point at a remote Ollama with `OLLAMA_HOST`.
+
+### From source
+
+```bash
+git clone https://github.com/rohankosalge/arDive
+cd arDive
+pip install -e .
+```
 
 ## Usage
 
