@@ -1,9 +1,9 @@
 [project]
 name = "ardive"
-version = "0.1.0"
+version = "0.1.1"
 description = "Command-line agent that pulls papers from arXiv and summarizes / explains them with a local open-source model."
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.9"
 license = "MIT"
 authors = [{ name = "Rohan Kosalge", email = "rohankosalge06@gmail.com" }]
 keywords = ["arxiv", "summarization", "cli", "ollama", "llm"]
