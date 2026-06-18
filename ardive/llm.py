@@ -15,6 +15,9 @@ from .arxiv import Paper
 MODEL = os.environ.get("ARDIVE_MODEL", "llama3.2")
 # Context window. Papers are long; raise this (and your RAM) for big papers.
 NUM_CTX = int(os.environ.get("ARDIVE_NUM_CTX", "8192"))
+# How long Ollama keeps the model loaded after a call, so back-to-back runs
+# skip the cold-start reload (Ollama's own default is only 5m).
+KEEP_ALIVE = os.environ.get("ARDIVE_KEEP_ALIVE", "15m")
 # Char budget for supplied paper text, leaving room for the prompt + response so
 # the model sees the instruction and the start of the paper instead of truncating.
 INPUT_CHARS = max(2000, (NUM_CTX - 1500) * 4)
@@ -48,6 +51,7 @@ def _ask(user: str) -> str:
                 {"role": "user", "content": user},
             ],
             options={"num_ctx": NUM_CTX},
+            keep_alive=KEEP_ALIVE,
         )
     except ConnectionError:
         raise RuntimeError(
@@ -82,7 +86,7 @@ def summarize(
         + _bullets_clause(max_bullets)
         + _eli5_clause(eli5)
     )
-    body = _clip(paper.full_text, INPUT_CHARS)
+    body = _clip(paper.full_text or paper.abstract, INPUT_CHARS)
     return _ask(f"{instruction}\n\n{_paper_block(paper, body)}")
 
 

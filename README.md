@@ -70,3 +70,18 @@ command, and the bullet-point response is printed to stdout.
 Long papers can exceed the model's context window and be truncated. arDive asks
 Ollama for an 8192-token window by default; raise it (at the cost of more RAM)
 with `export ARDIVE_NUM_CTX=16384`.
+
+## Speed
+
+Summaries run entirely on your machine, so wall-clock time is dominated by the
+model. A few levers:
+
+- **Model choice is the biggest one.** Smaller models are much faster. Try
+  `export ARDIVE_MODEL=llama3.2:1b` or `export ARDIVE_MODEL=qwen2.5:3b`; 7B+
+  models are noticeably slower on full papers. (Default is `llama3.2`, ~3B.)
+- **Abstract is near-instant.** `ardive sum <id> --section abstract` skips the
+  PDF download and summarizes just the abstract.
+- **First run is slowest.** It loads the model into memory; arDive keeps it warm
+  for 15 min afterward (tune with `ARDIVE_KEEP_ALIVE`), so repeat runs are quicker.
+- **Smaller asks finish sooner.** `--max-bullets N` shortens the output, and a
+  lower `ARDIVE_NUM_CTX` trades context for speed.

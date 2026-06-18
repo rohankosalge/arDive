@@ -1,6 +1,6 @@
 [project]
 name = "ardive"
-version = "0.1.1"
+version = "0.1.2"
 description = "Command-line agent that pulls papers from arXiv and summarizes / explains them with a local open-source model."
 readme = "README.md"
 requires-python = ">=3.9"

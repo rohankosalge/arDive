@@ -3,7 +3,12 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
+import itertools
+import os
 import sys
+import threading
+import time
 
 SECTIONS = {
     "abstract": "abstract",
@@ -12,6 +17,50 @@ SECTIONS = {
     "related": "related works",
     "citations": "citations / references",
 }
+
+
+@contextlib.contextmanager
+def _status(message: str):
+    """Show an animated status on stderr while a blocking task runs.
+
+    No-op when stderr isn't a TTY, so piped/redirected output stays clean.
+    """
+    if not sys.stderr.isatty():
+        yield
+        return
+
+    done = threading.Event()
+
+    def spin() -> None:
+        for frame in itertools.cycle("⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"):
+            if done.is_set():
+                break
+            sys.stderr.write(f"\r{frame} {message}")
+            sys.stderr.flush()
+            time.sleep(0.1)
+
+    thread = threading.Thread(target=spin, daemon=True)
+    thread.start()
+    try:
+        yield
+    finally:
+        done.set()
+        thread.join()
+        sys.stderr.write("\r\033[K")  # return to start of line and clear it
+        sys.stderr.flush()
+
+
+def _status_message(args: argparse.Namespace) -> str:
+    model = os.environ.get("ARDIVE_MODEL", "llama3.2")
+    if args.command == "sum":
+        what = f"Summarizing {args.arxiv_id}"
+    elif args.command == "comp":
+        what = f"Comparing {len(args.arxiv_ids)} papers"
+    elif args.command == "dig":
+        what = f"Digesting '{args.topic}'"
+    else:
+        what = "Working"
+    return f"{what}… (model: {model})"
 
 
 def positive_int(value: str) -> int:
@@ -65,7 +114,8 @@ def _run(args: argparse.Namespace) -> str:
     from . import arxiv, llm
 
     if args.command == "sum":
-        paper = arxiv.fetch_paper(args.arxiv_id)
+        # Abstract-only requests skip the PDF download entirely (much faster).
+        paper = arxiv.fetch_paper(args.arxiv_id, with_text=args.section != "abstract")
         section = SECTIONS[args.section] if args.section else None
         return llm.summarize(paper, section, args.max_bullets, args.eli5)
 
@@ -85,7 +135,9 @@ def _run(args: argparse.Namespace) -> str:
 def main() -> None:
     args = _build_parser().parse_args()
     try:
-        print(_run(args))
+        with _status(_status_message(args)):
+            result = _run(args)
+        print(result)
     except Exception as exc:  # clean message, no traceback for expected failures
         print(f"error: {exc}", file=sys.stderr)
         sys.exit(1)

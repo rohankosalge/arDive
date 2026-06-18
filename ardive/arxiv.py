@@ -43,16 +43,23 @@ def _pdf_text(url: str) -> str:
         return "\n".join(page.extract_text() or "" for page in reader.pages).strip()
 
 
-def fetch_paper(arxiv_id: str) -> Paper:
-    """Fetch one paper by arXiv ID, including full text from its PDF."""
+def fetch_paper(arxiv_id: str, with_text: bool = True) -> Paper:
+    """Fetch one paper by arXiv ID.
+
+    With ``with_text`` (default), download the PDF and extract its full text.
+    Pass ``with_text=False`` to skip the PDF entirely (metadata + abstract only)
+    — much faster when the abstract is all that's needed.
+    """
     try:
         result = next(_client.results(arxiv.Search(id_list=[arxiv_id])))
     except StopIteration:
         raise LookupError(f"No arXiv paper found with id '{arxiv_id}'.")
 
-    text = _pdf_text(result.pdf_url)
+    if not with_text:
+        return _result_to_paper(result)
 
     # Fall back to the abstract if text extraction came up empty.
+    text = _pdf_text(result.pdf_url)
     return _result_to_paper(result, full_text=text or result.summary.strip())
 
 
