@@ -1,8 +1,7 @@
-# arDive
+# arDive: a simple + seamless dive into your ArXiv
 
-A small command-line agent that pulls papers from arXiv and uses a free,
-local open-source model to summarize, explain, compare, and digest them.
-No API keys, no paid services.
+A small command-line agent that pulls papers from arXiv and uses Llama3.2 to
+summarize, explain, compare, and digest them. Anyone can easily install and use without the need of a paid plan.
 
 ## Install
 
