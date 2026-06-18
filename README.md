@@ -21,16 +21,16 @@ point at a remote Ollama with `OLLAMA_HOST`.
 
 ```bash
 # Summarize a paper as bullet points
-ardive sum 2410.12345
+ardive sum 1234.56789
 
 # Focus on one section, cap the bullets
-ardive sum 2410.12345 --section methodology --max-bullets 5
+ardive sum 1234.56789 --section methodology --max-bullets 5
 
 # Explain like I'm 5 (works on every command)
-ardive sum 2410.12345 --eli5
+ardive sum 1234.56789 --eli5
 
 # Compare two or more papers
-ardive comp 2410.12345 2403.04567
+ardive comp 1234.56789 9876.54321
 
 # Digest a topic (searches arXiv, default 8 papers)
 ardive dig "diffusion models for protein folding"
