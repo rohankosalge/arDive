@@ -51,7 +51,10 @@ def _status(message: str):
 
 
 def _status_message(args: argparse.Namespace) -> str:
-    model = os.environ.get("ARDIVE_MODEL", "llama3.2")
+    # sim uses no model — a pure arXiv lookup — so it gets no "(model: …)" suffix.
+    if args.command == "sim":
+        return f"Finding papers similar to {args.arxiv_id}…"
+    model = os.environ.get("ARDIVE_MODEL", "llama3.2:1b")
     if args.command == "sum":
         what = f"Summarizing {args.arxiv_id}"
     elif args.command == "comp":
@@ -122,6 +125,13 @@ def _build_parser() -> argparse.ArgumentParser:
     p_dig.add_argument(
         "-n", "--num", type=positive_int, default=3, help="papers to pull (default 3)"
     )
+
+    # No --eli5: sim just lists similar papers (title + id), nothing to simplify.
+    p_sim = sub.add_parser("sim", help="list papers similar to a given paper")
+    p_sim.add_argument("arxiv_id", help="arXiv id to find similar papers for")
+    p_sim.add_argument(
+        "-n", "--num", type=positive_int, default=3, help="similar papers to list (default 3)"
+    )
     return parser
 
 
@@ -144,6 +154,16 @@ def _run(args: argparse.Namespace) -> str:
     if args.command == "dig":
         papers = arxiv.search_topic(args.topic, args.num)
         return llm.digest(args.topic, papers, args.eli5)
+
+    if args.command == "sim":
+        # Pure arXiv lookup, no model — a quick list of similar papers.
+        src, papers = arxiv.find_similar(args.arxiv_id, args.num)
+        lines = [f"# Papers similar to {src.title} ({arxiv.bare_id(src.id)})", ""]
+        if papers:
+            lines += [f"{i}. {p.title} ({arxiv.bare_id(p.id)})" for i, p in enumerate(papers, 1)]
+        else:
+            lines.append("_(no similar papers found)_")
+        return "\n".join(lines)
 
     raise ValueError(f"unknown command: {args.command}")
 

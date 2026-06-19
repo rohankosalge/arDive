@@ -13,7 +13,7 @@ import ollama
 
 from .arxiv import Paper
 
-MODEL = os.environ.get("ARDIVE_MODEL", "llama3.2")
+MODEL = os.environ.get("ARDIVE_MODEL", "llama3.2:1b")
 # Context window. Papers are long; raise this (and your RAM) for big papers.
 NUM_CTX = int(os.environ.get("ARDIVE_NUM_CTX", "8192"))
 # How long Ollama keeps the model loaded after a call, so back-to-back runs

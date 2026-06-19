@@ -2,13 +2,36 @@
 
 from __future__ import annotations
 
+import contextlib
+import re
+import socket
 import tempfile
+import urllib.error
 import urllib.request
 from dataclasses import dataclass
 
 import arxiv
 
-_client = arxiv.Client()
+# Few retries + small pages so a busy/rate-limiting arXiv fails fast instead of
+# hanging on the library's default long backoff.
+_client = arxiv.Client(page_size=20, delay_seconds=3.0, num_retries=1)
+
+
+@contextlib.contextmanager
+def _bounded():
+    """Cap per-request network time and turn arXiv outages into a clean error."""
+    old = socket.getdefaulttimeout()
+    socket.setdefaulttimeout(20)
+    try:
+        yield
+    except arxiv.ArxivError as exc:
+        raise RuntimeError(
+            "arXiv is busy or rate-limiting right now — please try again in a moment."
+        ) from exc
+    except urllib.error.URLError as exc:
+        raise RuntimeError(f"could not reach arXiv: {exc.reason}") from exc
+    finally:
+        socket.setdefaulttimeout(old)
 
 
 @dataclass
@@ -51,7 +74,8 @@ def fetch_paper(arxiv_id: str, with_text: bool = True) -> Paper:
     — much faster when the abstract is all that's needed.
     """
     try:
-        result = next(_client.results(arxiv.Search(id_list=[arxiv_id])))
+        with _bounded():
+            result = next(_client.results(arxiv.Search(id_list=[arxiv_id])))
     except StopIteration:
         raise LookupError(f"No arXiv paper found with id '{arxiv_id}'.")
 
@@ -70,7 +94,25 @@ def search_topic(query: str, n: int) -> list[Paper]:
         max_results=n,
         sort_by=arxiv.SortCriterion.Relevance,
     )
-    papers = [_result_to_paper(r) for r in _client.results(search)]
+    with _bounded():
+        papers = [_result_to_paper(r) for r in _client.results(search)]
     if not papers:
         raise LookupError(f"No arXiv papers found for topic '{query}'.")
     return papers
+
+
+def bare_id(paper_id: str) -> str:
+    """arXiv id without the trailing version (e.g. '1706.03762v7' -> '1706.03762')."""
+    return re.sub(r"v\d+$", "", paper_id)
+
+
+def find_similar(arxiv_id: str, n: int) -> tuple[Paper, list[Paper]]:
+    """Return the source paper plus up to ``n`` similar papers (no PDF, no model).
+
+    Similarity is an arXiv relevance search on the source paper's title, with the
+    source itself removed from the results.
+    """
+    src = fetch_paper(arxiv_id, with_text=False)
+    results = search_topic(src.title, n + 1)
+    similar = [p for p in results if bare_id(p.id) != bare_id(src.id)][:n]
+    return src, similar
