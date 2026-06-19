@@ -37,12 +37,12 @@ ardive sum 1234.56789 --section methodology --max-bullets 5
 # Explain like I'm 5 (works on every command)
 ardive sum 1234.56789 --eli5
 
-# Compare two or more papers
+# Compare papers (similarities + a differences table)
 ardive comp 1234.56789 9876.54321
 
-# Digest a topic (searches arXiv, default 8 papers)
+# Digest a topic (searches arXiv, default 3 papers)
 ardive dig "diffusion models for protein folding"
-ardive dig "graph neural networks" -n 12
+ardive dig "graph neural networks" -n 5
 ```
 
 ### Commands
@@ -50,15 +50,15 @@ ardive dig "graph neural networks" -n 12
 | Command | What it does |
 | --- | --- |
 | `sum <id>` | Bullet-point summary of one paper (full PDF text). |
-| `comp <id> <id> [...]` | Compare two or more papers. |
-| `dig <topic>` | Search arXiv by topic and digest the top results. |
+| `comp <id> <id> [...]` | Compare papers: a `Title A vs Title B` header, a **Similarities** bullet list, and a **Differences** table. |
+| `dig <topic>` | Search arXiv by topic; one concise entry per paper (title + arXiv id + bullets) plus a **Themes** synthesis. |
 
 ### Flags
 
 - `--eli5` — explain in plain, jargon-free language (all commands).
 - `--section {abstract,intro,methodology,related,citations}` — `sum` only; focus on one section.
-- `--max-bullets N` — `sum` only; cap the number of bullets (positive integer).
-- `-n/--num N` — `dig` only; how many papers to pull (default 8).
+- `--max-bullets N` — `sum` only; hard cap on the number of bullets (positive integer).
+- `-n/--num N` — `dig` only; how many papers to pull (default 3).
 
 ## How it works
 

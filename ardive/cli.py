@@ -120,9 +120,8 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     p_dig.add_argument("topic", help="topic / search query")
     p_dig.add_argument(
-        "-n", "--num", type=positive_int, default=8, help="papers to pull (default 8)"
+        "-n", "--num", type=positive_int, default=3, help="papers to pull (default 3)"
     )
-
     return parser
 
 

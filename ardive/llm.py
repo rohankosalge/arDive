@@ -98,6 +98,39 @@ def _paper_block(paper: Paper, body: str) -> str:
     return f"Title: {paper.title}\nAuthors: {paper.authors}\n\n{body}"
 
 
+def _bare_id(paper_id: str) -> str:
+    """arXiv id without the trailing version (e.g. '1706.03762v7' -> '1706.03762')."""
+    return re.sub(r"v\d+$", "", paper_id)
+
+
+def _clip_title(title: str, n: int = 40) -> str:
+    return title if len(title) <= n else title[: n - 1].rstrip() + "…"
+
+
+def _parse_id_blocks(text: str) -> dict[str, list[str]]:
+    """Split model output into blocks keyed by a leading ``[marker]`` line."""
+    blocks: dict[str, list[str]] = {}
+    key: str | None = None
+    for line in text.splitlines():
+        marker = re.match(r"^\s*\[([^\]]+)\]\s*$", line)
+        if marker:
+            key = marker.group(1).strip()
+            blocks[key] = []
+        elif key is not None:
+            blocks[key].append(line)
+    return blocks
+
+
+def _block_bullets(lines: list[str] | None) -> list[str]:
+    """Keep only bullet lines from a block, normalized to '- '."""
+    out = []
+    for line in lines or []:
+        s = line.strip()
+        if s.startswith(("-", "*", "•")):
+            out.append("- " + s.lstrip("-*• ").strip())
+    return out
+
+
 def summarize(
     paper: Paper,
     section: str | None,
@@ -116,23 +149,53 @@ def summarize(
 
 
 def compare(papers: list[Paper], eli5: bool) -> str:
-    instruction = (
-        "Compare the following papers in bullet-point form. Cover what they "
-        "share, how they differ, and their relative strengths and weaknesses."
-        + _eli5_clause(eli5)
-    )
+    """Two sections — Similarities (bullets) and Differences (table) — under a
+    code-generated 'Title A vs Title B' header."""
     per_paper = INPUT_CHARS // max(1, len(papers))
     blocks = "\n\n---\n\n".join(
-        _paper_block(p, _clip(p.full_text, per_paper)) for p in papers
+        f"{p.title} ({_bare_id(p.id)}):\n{_clip(p.full_text or p.abstract, per_paper)}"
+        for p in papers
     )
-    return _ask(f"{instruction}\n\n{blocks}")
+    columns = ", ".join(f'"{_clip_title(p.title)}"' for p in papers)
+    instruction = (
+        "Compare the following papers. Output EXACTLY these two sections, in this "
+        "order, with no title and no other text:\n\n"
+        "## Similarities\n"
+        "- 3 to 6 concise bullet points covering what the papers share.\n\n"
+        "## Differences\n"
+        "A Markdown table whose first column header is 'Aspect' and which then has one "
+        f"column per paper with these exact headers: {columns}. Each row is one point of "
+        "difference, kept to a short phrase per cell." + _eli5_clause(eli5)
+    )
+    body = _ask(f"{instruction}\n\n{blocks}")
+    header = " vs ".join(p.title for p in papers)
+    return f"# {header}\n\n{body}"
 
 
 def digest(query: str, papers: list[Paper], eli5: bool) -> str:
-    instruction = (
-        f"Digest the arXiv literature on '{query}' in bullet-point form. "
-        "Cover the main themes, the most notable papers, and open questions."
-        + _eli5_clause(eli5)
+    """One concise entry per fetched paper (title + arXiv id + 2 bullets), then a
+    short themes synthesis. The paper list/count is built in code so `-n` always holds."""
+    listing = "\n\n".join(
+        f"[{_bare_id(p.id)}] {p.title}\n{p.abstract}" for p in papers
     )
-    blocks = "\n\n".join(_paper_block(p, p.abstract) for p in papers)
-    return _ask(f"{instruction}\n\n{blocks}")
+    instruction = (
+        f"Below are {len(papers)} arXiv papers on '{query}', each with a bracketed id. "
+        "Output ONLY blocks in this exact format and nothing else:\n"
+        "[<id>]\n- one short sentence\n- one short sentence\n"
+        "(one block per paper, reusing the exact bracketed id shown), then finally:\n"
+        "[THEMES]\n- short cross-cutting theme or open question\n- ...\n"
+        "Keep every bullet to a single concise sentence." + _eli5_clause(eli5)
+    )
+    parsed = _parse_id_blocks(_ask(f"{instruction}\n\n{listing}"))
+    themes_key = next((k for k in parsed if k.upper() == "THEMES"), None)
+
+    out = [f"# Digest: {query} ({len(papers)} papers)", ""]
+    for p in papers:
+        sid = _bare_id(p.id)
+        out.append(f"### {p.title} ({sid})")
+        out += _block_bullets(parsed.get(sid)) or ["- _(no summary returned)_"]
+        out.append("")
+    themes = _block_bullets(parsed.get(themes_key)) if themes_key else []
+    if themes:
+        out += ["## Themes", *themes]
+    return "\n".join(out).rstrip()
