@@ -7,6 +7,7 @@ model with the ARDIVE_MODEL env var; point at a remote server with OLLAMA_HOST.
 from __future__ import annotations
 
 import os
+import re
 
 import ollama
 
@@ -40,6 +41,30 @@ def _eli5_clause(eli5: bool) -> str:
 
 def _bullets_clause(max_bullets: int | None) -> str:
     return f" Use at most {max_bullets} bullet points." if max_bullets else ""
+
+
+# A top-level list item: "* ", "- ", "+ ", or "1. " at the start of a line.
+_TOP_BULLET = re.compile(r"^(?:[*\-+]|\d+\.)\s")
+
+
+def _cap_bullets(text: str, max_bullets: int | None) -> str:
+    """Hard-trim to the first ``max_bullets`` top-level list items.
+
+    The prompt also asks the model to self-limit, but local models don't obey
+    counts reliably, so this guarantees the cap. Intro lines and nested/indented
+    sub-bullets are kept; everything from the (max_bullets+1)-th item on is cut.
+    """
+    if not max_bullets:
+        return text
+    kept: list[str] = []
+    count = 0
+    for line in text.splitlines():
+        if _TOP_BULLET.match(line):
+            count += 1
+            if count > max_bullets:
+                break
+        kept.append(line)
+    return "\n".join(kept).rstrip()
 
 
 def _ask(user: str) -> str:
@@ -87,7 +112,7 @@ def summarize(
         + _eli5_clause(eli5)
     )
     body = _clip(paper.full_text or paper.abstract, INPUT_CHARS)
-    return _ask(f"{instruction}\n\n{_paper_block(paper, body)}")
+    return _cap_bullets(_ask(f"{instruction}\n\n{_paper_block(paper, body)}"), max_bullets)
 
 
 def compare(papers: list[Paper], eli5: bool) -> str:
