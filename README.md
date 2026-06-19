@@ -65,7 +65,9 @@ ardive dig "graph neural networks" -n 12
 `sum` and `comp` download each paper's PDF and extract its full text; `dig`
 searches arXiv and works from abstracts. The text is sent to a local
 open-source model via Ollama (default `llama3.2`) with a prompt tailored to the
-command, and the bullet-point response is printed to stdout.
+command. In a terminal the bullet-point response is rendered as formatted
+Markdown inside a box; when piped or redirected (e.g. `ardive sum 1234.56789 >
+out.md`) it's written as plain Markdown so the file stays clean.
 
 Long papers can exceed the model's context window and be truncated. arDive asks
 Ollama for an 8192-token window by default; raise it (at the cost of more RAM)

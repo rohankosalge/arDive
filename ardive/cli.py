@@ -63,6 +63,23 @@ def _status_message(args: argparse.Namespace) -> str:
     return f"{what}… (model: {model})"
 
 
+def _render(text: str, title: str = "arDive") -> None:
+    """Pretty-print Markdown in a box on a terminal; raw text when piped.
+
+    Keeps `ardive ... > out.md` clean (plain Markdown, no box-drawing chars).
+    """
+    if not sys.stdout.isatty():
+        print(text)
+        return
+    from rich.console import Console
+    from rich.markdown import Markdown
+    from rich.panel import Panel
+
+    Console().print(
+        Panel(Markdown(text), title=title, border_style="cyan", padding=(1, 2))
+    )
+
+
 def positive_int(value: str) -> int:
     n = int(value)
     if n <= 0:
@@ -137,7 +154,7 @@ def main() -> None:
     try:
         with _status(_status_message(args)):
             result = _run(args)
-        print(result)
+        _render(result, title=f"arDive · {args.command}")
     except Exception as exc:  # clean message, no traceback for expected failures
         print(f"error: {exc}", file=sys.stderr)
         sys.exit(1)
