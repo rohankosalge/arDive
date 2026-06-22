@@ -27,6 +27,30 @@ cd arDive
 pip install -e .
 ```
 
+### Troubleshooting
+
+**`pip install` works but `pip3 install` fails (or vice versa)?** The two
+commands often point at different Python installations. A common case on macOS is
+`pip3` resolving to Homebrew's Python, which refuses installs with an
+`error: externally-managed-environment` message (PEP 668).
+
+The cleanest fix for a CLI tool like arDive is [pipx](https://pipx.pypa.io),
+which installs it into its own isolated environment:
+
+```bash
+brew install pipx     # or: pip install --user pipx
+pipx install ardive
+```
+
+Alternatively, install into a virtual environment so `pip` and `pip3` both point
+to the same place:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install ardive
+```
+
 ## Usage
 
 ```bash
