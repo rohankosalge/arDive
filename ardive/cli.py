@@ -51,16 +51,16 @@ def _status(message: str):
 
 
 def _status_message(args: argparse.Namespace) -> str:
-    # sim uses no model — a pure arXiv lookup — so it gets no "(model: …)" suffix.
+    # sim and dig are pure arXiv lookups (no model) — no "(model: …)" suffix.
     if args.command == "sim":
         return f"Finding papers similar to {args.arxiv_id}…"
+    if args.command == "dig":
+        return f"Searching arXiv for '{args.topic}'…"
     model = os.environ.get("ARDIVE_MODEL", "llama3.2:1b")
     if args.command == "sum":
         what = f"Summarizing {args.arxiv_id}"
     elif args.command == "comp":
         what = f"Comparing {len(args.arxiv_ids)} papers"
-    elif args.command == "dig":
-        what = f"Digesting '{args.topic}'"
     else:
         what = "Working"
     return f"{what}… (model: {model})"
@@ -118,12 +118,11 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     p_comp.add_argument("arxiv_ids", nargs="+", help="two or more arXiv ids")
 
-    p_dig = sub.add_parser(
-        "dig", parents=[common], help="digest a topic of papers"
-    )
+    # No --eli5: dig just lists papers (title + id), nothing to simplify.
+    p_dig = sub.add_parser("dig", help="list papers on a topic")
     p_dig.add_argument("topic", help="topic / search query")
     p_dig.add_argument(
-        "-n", "--num", type=positive_int, default=3, help="papers to pull (default 3)"
+        "-n", "--num", type=positive_int, default=3, help="papers to list (default 3)"
     )
 
     # No --eli5: sim just lists similar papers (title + id), nothing to simplify.
@@ -135,35 +134,51 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _paper_list(header: str, papers: list) -> str:
+    """A numbered Markdown list of papers (title + bare id) under a header.
+
+    Shared by the model-free `dig` and `sim` commands.
+    """
+    from .arxiv import bare_id
+
+    lines = [f"# {header}", ""]
+    if papers:
+        lines += [f"{i}. {p.title} ({bare_id(p.id)})" for i, p in enumerate(papers, 1)]
+    else:
+        lines.append("_(no papers found)_")
+    return "\n".join(lines)
+
+
 def _run(args: argparse.Namespace) -> str:
     # Imported lazily so `ardive --help` works without the model deps running.
-    from . import arxiv, llm
+    from . import arxiv
 
     if args.command == "sum":
+        from . import llm
+
         # Abstract-only requests skip the PDF download entirely (much faster).
         paper = arxiv.fetch_paper(args.arxiv_id, with_text=args.section != "abstract")
         section = SECTIONS[args.section] if args.section else None
         return llm.summarize(paper, section, args.max_bullets, args.eli5)
 
     if args.command == "comp":
+        from . import llm
+
         if len(args.arxiv_ids) < 2:
             raise ValueError("comp needs at least two arXiv ids")
         papers = [arxiv.fetch_paper(i) for i in args.arxiv_ids]
         return llm.compare(papers, args.eli5)
 
+    # dig and sim are pure arXiv lookups (no model) — a quick numbered list.
     if args.command == "dig":
         papers = arxiv.search_topic(args.topic, args.num)
-        return llm.digest(args.topic, papers, args.eli5)
+        return _paper_list(f"Papers on '{args.topic}'", papers)
 
     if args.command == "sim":
-        # Pure arXiv lookup, no model — a quick list of similar papers.
         src, papers = arxiv.find_similar(args.arxiv_id, args.num)
-        lines = [f"# Papers similar to {src.title} ({arxiv.bare_id(src.id)})", ""]
-        if papers:
-            lines += [f"{i}. {p.title} ({arxiv.bare_id(p.id)})" for i, p in enumerate(papers, 1)]
-        else:
-            lines.append("_(no similar papers found)_")
-        return "\n".join(lines)
+        return _paper_list(
+            f"Papers similar to {src.title} ({arxiv.bare_id(src.id)})", papers
+        )
 
     raise ValueError(f"unknown command: {args.command}")
 

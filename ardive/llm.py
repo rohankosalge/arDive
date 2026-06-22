@@ -107,30 +107,6 @@ def _clip_title(title: str, n: int = 40) -> str:
     return title if len(title) <= n else title[: n - 1].rstrip() + "…"
 
 
-def _parse_id_blocks(text: str) -> dict[str, list[str]]:
-    """Split model output into blocks keyed by a leading ``[marker]`` line."""
-    blocks: dict[str, list[str]] = {}
-    key: str | None = None
-    for line in text.splitlines():
-        marker = re.match(r"^\s*\[([^\]]+)\]\s*$", line)
-        if marker:
-            key = marker.group(1).strip()
-            blocks[key] = []
-        elif key is not None:
-            blocks[key].append(line)
-    return blocks
-
-
-def _block_bullets(lines: list[str] | None) -> list[str]:
-    """Keep only bullet lines from a block, normalized to '- '."""
-    out = []
-    for line in lines or []:
-        s = line.strip()
-        if s.startswith(("-", "*", "•")):
-            out.append("- " + s.lstrip("-*• ").strip())
-    return out
-
-
 def summarize(
     paper: Paper,
     section: str | None,
@@ -170,32 +146,3 @@ def compare(papers: list[Paper], eli5: bool) -> str:
     body = _ask(f"{instruction}\n\n{blocks}")
     header = " vs ".join(p.title for p in papers)
     return f"# {header}\n\n{body}"
-
-
-def digest(query: str, papers: list[Paper], eli5: bool) -> str:
-    """One concise entry per fetched paper (title + arXiv id + 2 bullets), then a
-    short themes synthesis. The paper list/count is built in code so `-n` always holds."""
-    listing = "\n\n".join(
-        f"[{_bare_id(p.id)}] {p.title}\n{p.abstract}" for p in papers
-    )
-    instruction = (
-        f"Below are {len(papers)} arXiv papers on '{query}', each with a bracketed id. "
-        "Output ONLY blocks in this exact format and nothing else:\n"
-        "[<id>]\n- one short sentence\n- one short sentence\n"
-        "(one block per paper, reusing the exact bracketed id shown), then finally:\n"
-        "[THEMES]\n- short cross-cutting theme or open question\n- ...\n"
-        "Keep every bullet to a single concise sentence." + _eli5_clause(eli5)
-    )
-    parsed = _parse_id_blocks(_ask(f"{instruction}\n\n{listing}"))
-    themes_key = next((k for k in parsed if k.upper() == "THEMES"), None)
-
-    out = [f"# Digest: {query} ({len(papers)} papers)", ""]
-    for p in papers:
-        sid = _bare_id(p.id)
-        out.append(f"### {p.title} ({sid})")
-        out += _block_bullets(parsed.get(sid)) or ["- _(no summary returned)_"]
-        out.append("")
-    themes = _block_bullets(parsed.get(themes_key)) if themes_key else []
-    if themes:
-        out += ["## Themes", *themes]
-    return "\n".join(out).rstrip()

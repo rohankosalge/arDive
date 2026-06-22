@@ -1,5 +1,7 @@
 # arDive: a simple dive into your ArXiv
 
+[![PyPI](https://img.shields.io/pypi/v/ardive)](https://pypi.org/project/ardive/)
+
 A small command-line agent that pulls papers from arXiv and uses Llama3.2 to
 summarize, explain, compare, and digest them. Anyone can easily install and use without the need of a paid plan.
 
@@ -40,7 +42,7 @@ ardive sum 1234.56789 --eli5
 # Compare papers (similarities + a differences table)
 ardive comp 1234.56789 9876.54321
 
-# Digest a topic (searches arXiv, default 3 papers)
+# List papers on a topic (fast; no model)
 ardive dig "diffusion models for protein folding"
 ardive dig "graph neural networks" -n 5
 
@@ -54,25 +56,25 @@ ardive sim 1234.56789 -n 5
 | --- | --- |
 | `sum <id>` | Bullet-point summary of one paper (full PDF text). |
 | `comp <id> <id> [...]` | Compare papers: a `Title A vs Title B` header, a **Similarities** bullet list, and a **Differences** table. |
-| `dig <topic>` | Search arXiv by topic; one concise entry per paper (title + arXiv id + bullets) plus a **Themes** synthesis. |
-| `sim <id>` | List papers similar to the given one (title + arXiv id only). Pure arXiv lookup — no model, very fast. |
+| `dig <topic>` | Search arXiv by topic; a numbered list of papers (title + arXiv id). Pure arXiv lookup — no model, very fast. |
+| `sim <id>` | List papers similar to the given one (title + arXiv id), scoped to its arXiv category. Pure arXiv lookup — no model, very fast. |
 
 ### Flags
 
-- `--eli5` — explain in plain, jargon-free language (`sum`, `comp`, `dig`).
+- `--eli5` — explain in plain, jargon-free language (`sum`, `comp`).
 - `--section {abstract,intro,methodology,related,citations}` — `sum` only; focus on one section.
 - `--max-bullets N` — `sum` only; hard cap on the number of bullets (positive integer).
-- `-n/--num N` — `dig` and `sim`; how many papers to pull/list (default 3).
+- `-n/--num N` — `dig` and `sim`; how many papers to list (default 3).
 
 ## How it works
 
-`sum` and `comp` download each paper's PDF and extract its full text; `dig`
-searches arXiv and works from abstracts. The text is sent to a local
-open-source model via Ollama (default `llama3.2:1b`) with a prompt tailored to
-the command. (`sim` uses no model — it's a pure arXiv lookup.) In a terminal the
-response is rendered as formatted Markdown inside a box; when piped or redirected
-(e.g. `ardive sum 1234.56789 > out.md`) it's written as plain Markdown so the
-file stays clean.
+`sum` and `comp` download each paper's PDF and extract its full text, then send
+it to a local open-source model via Ollama (default `llama3.2:1b`) with a prompt
+tailored to the command. `dig` and `sim` use **no model** — they're pure arXiv
+lookups that just list papers, so they're fast. In a terminal the response is
+rendered as formatted Markdown inside a box; when piped or redirected (e.g.
+`ardive sum 1234.56789 > out.md`) it's written as plain Markdown so the file
+stays clean.
 
 Long papers can exceed the model's context window and be truncated. arDive asks
 Ollama for an 8192-token window by default; raise it (at the cost of more RAM)

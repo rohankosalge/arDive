@@ -40,6 +40,7 @@ class Paper:
     title: str
     authors: str
     abstract: str
+    primary_category: str = ""
     full_text: str = ""
 
 
@@ -49,6 +50,7 @@ def _result_to_paper(result: arxiv.Result, full_text: str = "") -> Paper:
         title=result.title.strip(),
         authors=", ".join(a.name for a in result.authors),
         abstract=result.summary.strip(),
+        primary_category=result.primary_category or "",
         full_text=full_text,
     )
 
@@ -109,10 +111,23 @@ def bare_id(paper_id: str) -> str:
 def find_similar(arxiv_id: str, n: int) -> tuple[Paper, list[Paper]]:
     """Return the source paper plus up to ``n`` similar papers (no PDF, no model).
 
-    Similarity is an arXiv relevance search on the source paper's title, with the
-    source itself removed from the results.
+    Similarity is an arXiv relevance search on the source paper's title, scoped to
+    its primary category to avoid cross-domain matches, with the source removed.
+    Falls back to a title-only search if the category-scoped one finds nothing.
     """
     src = fetch_paper(arxiv_id, with_text=False)
-    results = search_topic(src.title, n + 1)
-    similar = [p for p in results if bare_id(p.id) != bare_id(src.id)][:n]
-    return src, similar
+    # Strip punctuation so the title can't break arXiv's query syntax (e.g. ':').
+    terms = re.sub(r"[^\w\s]", " ", src.title).strip()
+
+    def _search(query: str) -> list[Paper]:
+        results = search_topic(query, n + 1)
+        return [p for p in results if bare_id(p.id) != bare_id(src.id)][:n]
+
+    if src.primary_category:
+        try:
+            similar = _search(f"cat:{src.primary_category} AND {terms}")
+        except LookupError:
+            similar = []
+        if similar:
+            return src, similar
+    return src, _search(terms)
